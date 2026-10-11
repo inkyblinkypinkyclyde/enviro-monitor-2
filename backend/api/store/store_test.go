@@ -91,7 +91,7 @@ func TestSensors(t *testing.T) {
 
 func TestReadingsAll(t *testing.T) {
 	st := newStore(t)
-	got, err := st.Readings(context.Background(), nil)
+	got, err := st.Readings(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +112,7 @@ func TestReadingsAll(t *testing.T) {
 func TestReadingsBySensor(t *testing.T) {
 	st := newStore(t)
 	id := 1
-	got, err := st.Readings(context.Background(), &id)
+	got, err := st.Readings(context.Background(), &id, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,11 +132,23 @@ func TestReadingsBySensor(t *testing.T) {
 func TestReadingsUnknownSensor(t *testing.T) {
 	st := newStore(t)
 	id := 999
-	got, err := st.Readings(context.Background(), &id)
+	got, err := st.Readings(context.Background(), &id, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got == nil || len(got) != 0 {
 		t.Errorf("got %#v, want empty non-nil slice", got)
+	}
+}
+
+func TestReadingsSince(t *testing.T) {
+	st := newStore(t)
+	since := time.Now().Add(-90 * time.Minute)
+	got, err := st.Readings(context.Background(), nil, &since)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
 	}
 }

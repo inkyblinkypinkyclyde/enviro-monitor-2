@@ -22,6 +22,7 @@ type fakeStore struct {
 	reads   []models.Reading
 
 	gotSensorID *int
+	gotSince    *time.Time
 }
 
 func (f *fakeStore) Ping(context.Context) error { return f.pingErr }
@@ -34,8 +35,9 @@ func (f *fakeStore) Sensors(context.Context) ([]models.Sensor, error) {
 	return f.sensors, f.err
 }
 
-func (f *fakeStore) Readings(_ context.Context, sensorID *int) ([]models.Reading, error) {
+func (f *fakeStore) Readings(_ context.Context, sensorID *int, since *time.Time) ([]models.Reading, error) {
 	f.gotSensorID = sensorID
+	f.gotSince = since
 	return f.reads, f.err
 }
 
@@ -124,6 +126,23 @@ func TestReadings(t *testing.T) {
 	}
 	if st.gotSensorID == nil || *st.gotSensorID != 3 {
 		t.Errorf("sensorID = %v, want 3", st.gotSensorID)
+	}
+}
+
+func TestReadingsSince(t *testing.T) {
+	st := &fakeStore{}
+
+	rec := do(t, st, "/readings?since=2026-10-10T12:00:00Z")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	want := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
+	if st.gotSince == nil || !st.gotSince.Equal(want) {
+		t.Errorf("since = %v, want %v", st.gotSince, want)
+	}
+
+	if rec := do(t, st, "/readings?since=yesterday"); rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rec.Code)
 	}
 }
 

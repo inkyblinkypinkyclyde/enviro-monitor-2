@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"enviro-monitor/api/models"
 
@@ -82,15 +83,20 @@ func (s *Store) Sensors(ctx context.Context) ([]models.Sensor, error) {
 	return sensors, err
 }
 
-// Readings returns the latest readings, filtered by sensorID when non-nil.
-func (s *Store) Readings(ctx context.Context, sensorID *int) ([]models.Reading, error) {
+// Readings returns readings newest first, filtered by sensorID when non-nil.
+// With since set, every reading at or after it is returned; otherwise only the latest readingsLimit.
+func (s *Store) Readings(ctx context.Context, sensorID *int, since *time.Time) ([]models.Reading, error) {
 	readings := []models.Reading{}
 	q := s.db.NewSelect().
 		Model(&readings).
-		Order("collected_time DESC").
-		Limit(readingsLimit)
+		Order("collected_time DESC")
 	if sensorID != nil {
 		q = q.Where("sensor_id = ?", *sensorID)
+	}
+	if since != nil {
+		q = q.Where("collected_time >= ?", *since)
+	} else {
+		q = q.Limit(readingsLimit)
 	}
 	err := q.Scan(ctx)
 	return readings, err

@@ -10,7 +10,7 @@ INSERT INTO sensors (room_id) VALUES
     (2),
     (3);
 
--- 10 readings per sensor, one every 30 minutes ending now.
+-- 48 readings per sensor, one every 30 minutes covering the last 24 hours.
 INSERT INTO dht22_readings (sensor_id, temperature, humidity, collected_time)
 SELECT
     s.id,
@@ -18,4 +18,4 @@ SELECT
     ROUND((40 + s.id * 3 + random() * 20)::numeric, 1),
     NOW() - (g.n * INTERVAL '30 minutes')
 FROM sensors s
-CROSS JOIN generate_series(0, 9) AS g(n);
+CROSS JOIN generate_series(0, 47) AS g(n);

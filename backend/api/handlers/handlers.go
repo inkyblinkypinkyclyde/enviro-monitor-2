@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"enviro-monitor/api/models"
 )
@@ -14,7 +15,7 @@ type Store interface {
 	Ping(ctx context.Context) error
 	Rooms(ctx context.Context) ([]models.RoomDetail, error)
 	Sensors(ctx context.Context) ([]models.Sensor, error)
-	Readings(ctx context.Context, sensorID *int) ([]models.Reading, error)
+	Readings(ctx context.Context, sensorID *int, since *time.Time) ([]models.Reading, error)
 }
 
 type Server struct {
@@ -73,7 +74,7 @@ func (s *Server) Sensors(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, sensors)
 }
 
-// Optional ?sensor_id= filter.
+// Optional ?sensor_id= and ?since= (RFC 3339) filters.
 func (s *Server) Readings(w http.ResponseWriter, r *http.Request) {
 	var sensorID *int
 	if v := r.URL.Query().Get("sensor_id"); v != "" {
@@ -85,7 +86,17 @@ func (s *Server) Readings(w http.ResponseWriter, r *http.Request) {
 		sensorID = &n
 	}
 
-	readings, err := s.store.Readings(r.Context(), sensorID)
+	var since *time.Time
+	if v := r.URL.Query().Get("since"); v != "" {
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid since"})
+			return
+		}
+		since = &t
+	}
+
+	readings, err := s.store.Readings(r.Context(), sensorID, since)
 	if err != nil {
 		s.fail(w, err)
 		return

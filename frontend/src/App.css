@@ -53,3 +53,71 @@
   margin: 12px 0 0;
   font-size: 0.8rem;
 }
+
+.room-card.expanded {
+  grid-column: 1 / -1;
+}
+
+.room-toggle {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.room-history {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.room-history h3 {
+  margin: 0 0 8px;
+  color: var(--text-h);
+  font-size: 1rem;
+}
+
+.room-history table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.room-history th,
+.room-history td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.room-chart {
+  margin-top: 12px;
+}
+
+.readings-chart {
+  width: 100%;
+  height: auto;
+}
+
+.chart-frame {
+  fill: none;
+  stroke: var(--border);
+}
+
+.chart-label {
+  fill: var(--text);
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-dasharray: 3 3;
+}
+
+.chart-empty {
+  margin: 0;
+  font-size: 0.8rem;
+}

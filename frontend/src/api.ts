@@ -25,3 +25,16 @@ export async function fetchRooms(signal?: AbortSignal): Promise<Room[]> {
   }
   return res.json()
 }
+
+export async function fetchSensorReadings(
+  sensorId: number,
+  since: string,
+  signal?: AbortSignal,
+): Promise<Reading[]> {
+  const params = new URLSearchParams({ sensor_id: String(sensorId), since })
+  const res = await fetch(`/api/readings?${params}`, { signal })
+  if (!res.ok) {
+    throw new Error(`Request failed: ${res.status}`)
+  }
+  return res.json()
+}
