@@ -94,6 +94,52 @@
   text-align: left;
 }
 
+.room-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 0 24px;
+}
+
+.room-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.room-form input {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+}
+
+.room-form button {
+  padding: 7px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.room-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.room-form .error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .room-chart {
   margin-top: 12px;
 }

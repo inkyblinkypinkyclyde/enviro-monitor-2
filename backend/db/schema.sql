@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS rooms (
 
 CREATE TABLE IF NOT EXISTS sensors (
     id SERIAL PRIMARY KEY,
-    room_id INT NOT NULL REFERENCES rooms (id)
+    room_id INT NOT NULL REFERENCES rooms (id),
+    ip_address INET NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS dht22_readings (

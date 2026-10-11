@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"enviro-monitor/api/models"
 	"enviro-monitor/api/store"
 
 	"github.com/uptrace/bun/driver/pgdriver"
@@ -34,7 +35,7 @@ func newStore(t *testing.T) *store.Store {
 	stmts := []string{
 		`TRUNCATE dht22_readings, sensors, rooms RESTART IDENTITY CASCADE`,
 		`INSERT INTO rooms (room_name) VALUES ('Living Room'), ('Bedroom')`,
-		`INSERT INTO sensors (room_id) VALUES (1), (2)`,
+		`INSERT INTO sensors (room_id, ip_address) VALUES (1, '192.168.1.101'), (2, '192.168.1.102')`,
 		`INSERT INTO dht22_readings (sensor_id, temperature, humidity, collected_time) VALUES
 			(1, 20.0, 40.0, NOW() - INTERVAL '2 hours'),
 			(1, 21.0, 41.0, NOW() - INTERVAL '1 hour'),
@@ -78,6 +79,57 @@ func TestRooms(t *testing.T) {
 	}
 }
 
+func TestCreateRoom(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	room, err := st.CreateRoom(ctx, "Garage", "192.168.1.50")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if room.ID == 0 || room.RoomName != "Garage" || len(room.Sensors) != 1 {
+		t.Fatalf("got %+v", room)
+	}
+	if s := room.Sensors[0]; s.ID == 0 || s.RoomID != room.ID || s.IPAddress != "192.168.1.50" {
+		t.Errorf("sensor = %+v", s)
+	}
+
+	rooms, err := st.Rooms(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rooms) != 3 || rooms[2].RoomName != "Garage" || rooms[2].Sensors[0].IPAddress != "192.168.1.50" {
+		t.Errorf("rooms after create = %+v", rooms)
+	}
+}
+
+func TestSaveReadings(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	if err := st.SaveReadings(ctx, nil); err != nil {
+		t.Fatalf("empty save: %v", err)
+	}
+
+	now := time.Now()
+	err := st.SaveReadings(ctx, []models.Reading{
+		{SensorID: 1, Temperature: 23.5, Humidity: 61, CollectedTime: now},
+		{SensorID: 2, Temperature: 19.5, Humidity: 44, CollectedTime: now},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id := 1
+	got, err := st.Readings(ctx, &id, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 || got[0].Temperature != 23.5 || got[0].Humidity != 61 {
+		t.Errorf("got %+v", got)
+	}
+}
+
 func TestSensors(t *testing.T) {
 	st := newStore(t)
 	sensors, err := st.Sensors(context.Background())
@@ -86,6 +138,9 @@ func TestSensors(t *testing.T) {
 	}
 	if len(sensors) != 2 || sensors[0].RoomID != 1 || sensors[1].RoomID != 2 {
 		t.Errorf("got %+v", sensors)
+	}
+	if sensors[0].IPAddress != "192.168.1.101" || sensors[1].IPAddress != "192.168.1.102" {
+		t.Errorf("ip addresses = %q, %q", sensors[0].IPAddress, sensors[1].IPAddress)
 	}
 }
 

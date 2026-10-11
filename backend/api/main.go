@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"enviro-monitor/api/collector"
 	"enviro-monitor/api/handlers"
 	"enviro-monitor/api/store"
 )
@@ -26,7 +27,7 @@ func main() {
 	addr := ":" + getenv("PORT", "8080")
 	srv := &http.Server{
 		Addr:              addr,
-		Handler:           handlers.New(st).Routes(),
+		Handler:           handlers.New(st, collector.New(st, nil)).Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	log.Printf("listening on %s", addr)

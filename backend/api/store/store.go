@@ -71,10 +71,44 @@ func (s *Store) Rooms(ctx context.Context) ([]models.RoomDetail, error) {
 		out[i].Sensors = append(out[i].Sensors, models.SensorWithReading{
 			ID:            sn.ID,
 			RoomID:        sn.RoomID,
+			IPAddress:     sn.IPAddress,
 			LatestReading: latestBySensor[sn.ID],
 		})
 	}
 	return out, nil
+}
+
+// CreateRoom inserts a room and its sensor in one transaction.
+func (s *Store) CreateRoom(ctx context.Context, name, ipAddress string) (models.RoomDetail, error) {
+	var out models.RoomDetail
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		room := &models.Room{RoomName: name}
+		if _, err := tx.NewInsert().Model(room).Returning("id").Exec(ctx); err != nil {
+			return err
+		}
+		sensor := &models.Sensor{RoomID: room.ID, IPAddress: ipAddress}
+		if _, err := tx.NewInsert().Model(sensor).Returning("id").Exec(ctx); err != nil {
+			return err
+		}
+		out = models.RoomDetail{
+			ID:       room.ID,
+			RoomName: room.RoomName,
+			Sensors: []models.SensorWithReading{
+				{ID: sensor.ID, RoomID: room.ID, IPAddress: sensor.IPAddress},
+			},
+		}
+		return nil
+	})
+	return out, err
+}
+
+// SaveReadings inserts the readings; a no-op for an empty slice.
+func (s *Store) SaveReadings(ctx context.Context, readings []models.Reading) error {
+	if len(readings) == 0 {
+		return nil
+	}
+	_, err := s.db.NewInsert().Model(&readings).Exec(ctx)
+	return err
 }
 
 func (s *Store) Sensors(ctx context.Context) ([]models.Sensor, error) {

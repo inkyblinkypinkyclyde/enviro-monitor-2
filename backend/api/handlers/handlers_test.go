@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"enviro-monitor/api/collector"
 	"enviro-monitor/api/handlers"
 	"enviro-monitor/api/models"
 )
@@ -23,6 +24,39 @@ type fakeStore struct {
 
 	gotSensorID *int
 	gotSince    *time.Time
+
+	gotName, gotIP string
+
+	saved    []models.Reading
+	saveErr  error
+	saveCall int
+}
+
+func (f *fakeStore) SaveReadings(_ context.Context, r []models.Reading) error {
+	f.saveCall++
+	f.saved = r
+	return f.saveErr
+}
+
+type fakeCollector struct {
+	results []collector.Result
+	err     error
+	block   chan struct{}
+	entered chan struct{}
+}
+
+func (f *fakeCollector) GetReadings(context.Context) ([]collector.Result, error) {
+	if f.block != nil {
+		close(f.entered)
+		<-f.block
+	}
+	return f.results, f.err
+}
+
+func postCollect(st handlers.Store, c handlers.Collector) *httptest.ResponseRecorder {
+	rec := httptest.NewRecorder()
+	handlers.New(st, c).Routes().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/collect", nil))
+	return rec
 }
 
 func (f *fakeStore) Ping(context.Context) error { return f.pingErr }
@@ -41,10 +75,26 @@ func (f *fakeStore) Readings(_ context.Context, sensorID *int, since *time.Time)
 	return f.reads, f.err
 }
 
+func (f *fakeStore) CreateRoom(_ context.Context, name, ip string) (models.RoomDetail, error) {
+	f.gotName, f.gotIP = name, ip
+	return models.RoomDetail{
+		ID: 7, RoomName: name,
+		Sensors: []models.SensorWithReading{{ID: 8, RoomID: 7, IPAddress: ip}},
+	}, f.err
+}
+
+func post(t *testing.T, st handlers.Store, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/rooms", strings.NewReader(body))
+	handlers.New(st, nil).Routes().ServeHTTP(rec, req)
+	return rec
+}
+
 func do(t *testing.T, st handlers.Store, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	handlers.New(st).Routes().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+	handlers.New(st, nil).Routes().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 	return rec
 }
 
@@ -92,7 +142,7 @@ func TestRooms(t *testing.T) {
 }
 
 func TestSensors(t *testing.T) {
-	st := &fakeStore{sensors: []models.Sensor{{ID: 2, RoomID: 1}}}
+	st := &fakeStore{sensors: []models.Sensor{{ID: 2, RoomID: 1, IPAddress: "192.168.1.101"}}}
 	rec := do(t, st, "/sensors")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
@@ -102,7 +152,7 @@ func TestSensors(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].ID != 2 || got[0].RoomID != 1 {
+	if len(got) != 1 || got[0].ID != 2 || got[0].RoomID != 1 || got[0].IPAddress != "192.168.1.101" {
 		t.Errorf("got %+v", got)
 	}
 }
@@ -165,14 +215,143 @@ func TestStoreErrorReturns500(t *testing.T) {
 	}
 }
 
+func TestCreateRoom(t *testing.T) {
+	st := &fakeStore{}
+	rec := post(t, st, `{"room_name":"  Garage ","ip_address":"192.168.1.50"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body %s", rec.Code, rec.Body)
+	}
+	if st.gotName != "Garage" || st.gotIP != "192.168.1.50" {
+		t.Errorf("store got %q, %q", st.gotName, st.gotIP)
+	}
+
+	var got models.RoomDetail
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != 7 || len(got.Sensors) != 1 || got.Sensors[0].IPAddress != "192.168.1.50" {
+		t.Errorf("got %+v", got)
+	}
+}
+
+func TestCreateRoomValidation(t *testing.T) {
+	bodies := []string{
+		`not json`,
+		`{"room_name":"","ip_address":"192.168.1.50"}`,
+		`{"room_name":"   ","ip_address":"192.168.1.50"}`,
+		`{"room_name":"Garage","ip_address":""}`,
+		`{"room_name":"Garage","ip_address":"999.1.1.1"}`,
+		`{"room_name":"Garage","ip_address":"not-an-ip"}`,
+		`{"room_name":"` + strings.Repeat("a", 101) + `","ip_address":"192.168.1.50"}`,
+	}
+	for _, b := range bodies {
+		st := &fakeStore{}
+		if rec := post(t, st, b); rec.Code != http.StatusBadRequest {
+			t.Errorf("%.40s: status = %d, want 400", b, rec.Code)
+		}
+		if st.gotName != "" {
+			t.Errorf("%.40s: store was called", b)
+		}
+	}
+}
+
+func TestCreateRoomStoreError(t *testing.T) {
+	rec := post(t, &fakeStore{err: errors.New("boom")}, `{"room_name":"Garage","ip_address":"192.168.1.50"}`)
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "boom") {
+		t.Errorf("body leaks error: %s", rec.Body)
+	}
+}
+
+func TestCollect(t *testing.T) {
+	good := &models.Reading{SensorID: 1, Temperature: 21, Humidity: 50}
+	c := &fakeCollector{results: []collector.Result{
+		{Sensor: models.Sensor{ID: 1, IPAddress: "10.0.0.1"}, Reading: good},
+		{Sensor: models.Sensor{ID: 2, IPAddress: "10.0.0.2"}, Err: errors.New("dial tcp 10.0.0.2:80: timeout")},
+	}}
+	st := &fakeStore{}
+
+	rec := postCollect(st, c)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body %s", rec.Code, rec.Body)
+	}
+	if len(st.saved) != 1 || st.saved[0].SensorID != 1 {
+		t.Errorf("saved %+v", st.saved)
+	}
+
+	var got struct {
+		Collected int `json:"collected"`
+		Failed    []struct {
+			SensorID  int    `json:"sensor_id"`
+			IPAddress string `json:"ip_address"`
+		} `json:"failed"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Collected != 1 || len(got.Failed) != 1 || got.Failed[0].SensorID != 2 {
+		t.Errorf("got %+v", got)
+	}
+	if strings.Contains(rec.Body.String(), "timeout") {
+		t.Errorf("body leaks sensor error: %s", rec.Body)
+	}
+}
+
+func TestCollectNoSensors(t *testing.T) {
+	rec := postCollect(&fakeStore{}, &fakeCollector{})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `"failed":[]`) {
+		t.Errorf("failed should be an empty array: %s", rec.Body)
+	}
+}
+
+func TestCollectErrors(t *testing.T) {
+	if rec := postCollect(&fakeStore{}, &fakeCollector{err: errors.New("boom")}); rec.Code != http.StatusInternalServerError {
+		t.Errorf("collector error: status = %d, want 500", rec.Code)
+	}
+
+	c := &fakeCollector{results: []collector.Result{{Sensor: models.Sensor{ID: 1}, Reading: &models.Reading{SensorID: 1}}}}
+	if rec := postCollect(&fakeStore{saveErr: errors.New("boom")}, c); rec.Code != http.StatusInternalServerError {
+		t.Errorf("save error: status = %d, want 500", rec.Code)
+	}
+}
+
+func TestCollectRejectsOverlap(t *testing.T) {
+	c := &fakeCollector{block: make(chan struct{}), entered: make(chan struct{})}
+	srv := handlers.New(&fakeStore{}, c)
+
+	done := make(chan int)
+	go func() {
+		rec := httptest.NewRecorder()
+		srv.Routes().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/collect", nil))
+		done <- rec.Code
+	}()
+	<-c.entered
+
+	rec := httptest.NewRecorder()
+	srv.Routes().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/collect", nil))
+	if rec.Code != http.StatusConflict {
+		t.Errorf("overlapping run: status = %d, want 409", rec.Code)
+	}
+
+	close(c.block)
+	if code := <-done; code != http.StatusOK {
+		t.Errorf("first run: status = %d, want 200", code)
+	}
+}
+
 func TestUnknownRouteAndMethod(t *testing.T) {
 	if rec := do(t, &fakeStore{}, "/nope"); rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", rec.Code)
 	}
 
 	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/rooms", nil)
-	handlers.New(&fakeStore{}).Routes().ServeHTTP(rec, req)
+	req := httptest.NewRequest(http.MethodDelete, "/rooms", nil)
+	handlers.New(&fakeStore{}, nil).Routes().ServeHTTP(rec, req)
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want 405", rec.Code)
 	}

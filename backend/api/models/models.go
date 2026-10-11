@@ -16,8 +16,9 @@ type Room struct {
 type Sensor struct {
 	bun.BaseModel `bun:"table:sensors,alias:s" json:"-"`
 
-	ID     int `bun:"id,pk,autoincrement" json:"id"`
-	RoomID int `bun:"room_id" json:"room_id"`
+	ID        int    `bun:"id,pk,autoincrement" json:"id"`
+	RoomID    int    `bun:"room_id" json:"room_id"`
+	IPAddress string `bun:"ip_address" json:"ip_address"`
 }
 
 type Reading struct {
@@ -34,6 +35,7 @@ type Reading struct {
 type SensorWithReading struct {
 	ID            int      `json:"id"`
 	RoomID        int      `json:"room_id"`
+	IPAddress     string   `json:"ip_address"`
 	LatestReading *Reading `json:"latest_reading"`
 }
 

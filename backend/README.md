@@ -30,6 +30,9 @@ curl "http://localhost:8080/readings?sensor_id=1"
 
 # Invalid sensor_id returns 400
 curl -i "http://localhost:8080/readings?sensor_id=abc"
+
+# Poll every sensor and store the readings (409 if a run is already in progress)
+curl -X POST http://localhost:8080/collect
 ```
 
 Pipe to `jq` for readable output, e.g. `curl -s http://localhost:8080/rooms | jq`.

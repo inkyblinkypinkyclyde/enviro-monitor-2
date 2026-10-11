@@ -9,9 +9,9 @@ db-teardown:
 db-seed:
 	docker compose exec -T postgres sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < db/seed.sql
 
-# Handler unit tests only; no database needed.
+# Unit tests only; no database needed.
 test:
-	cd api && go test ./handlers/...
+	cd api && go test ./handlers/... ./collector/...
 
 # Handler tests plus store integration tests; needs the database from db-setup.
 test-all:

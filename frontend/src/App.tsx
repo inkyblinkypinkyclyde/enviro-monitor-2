@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchRooms, type Room } from './api'
 import RoomCard from './RoomCard'
+import RoomForm from './RoomForm'
 import './App.css'
 
 const REFRESH_MS = 30_000
@@ -34,6 +35,7 @@ export default function App() {
   return (
     <main className="app">
       <h1>Enviro Monitor</h1>
+      <RoomForm onCreated={(room) => setRooms((prev) => [...(prev ?? []), room])} />
       {error && <p className="error">{error}</p>}
       {!rooms && !error && <p>Loading…</p>}
       {rooms && rooms.length === 0 && <p>No rooms found.</p>}
