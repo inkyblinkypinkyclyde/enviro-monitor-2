@@ -1,0 +1,55 @@
+.app {
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.app h1 {
+  color: var(--text-h);
+  margin: 0 0 24px;
+}
+
+.error {
+  color: #dc2626;
+}
+
+.room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.room-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.room-card h2 {
+  margin: 0 0 12px;
+  color: var(--text-h);
+  font-size: 1.2rem;
+}
+
+.room-reading {
+  display: flex;
+  justify-content: space-around;
+  margin: 0;
+}
+
+.room-reading dt {
+  font-size: 0.8rem;
+}
+
+.room-reading dd {
+  margin: 4px 0 0;
+  color: var(--text-h);
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.room-time,
+.room-empty {
+  margin: 12px 0 0;
+  font-size: 0.8rem;
+}
