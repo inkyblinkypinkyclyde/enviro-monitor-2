@@ -9,7 +9,7 @@ const TEMP_COLOR = '#ef4444'
 const HUMIDITY_COLOR = '#3b82f6'
 
 const [T_MIN, T_MAX] = [0, 40]
-const [H_MIN, H_MAX] = [30, 100]
+const [H_MIN, H_MAX] = [0, 100]
 
 const GRID_TEMPS = [10, 20, 30]
 
