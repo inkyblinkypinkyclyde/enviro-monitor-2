@@ -8,3 +8,17 @@ repos:
     hooks:
       - id: detect-private-key
       - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: backend-tests
+        name: backend unit tests
+        entry: make -C backend test
+        language: system
+        files: ^backend/api/
+        pass_filenames: false
+      - id: frontend-tests
+        name: frontend unit tests
+        entry: npm --prefix frontend test
+        language: system
+        files: ^frontend/
+        pass_filenames: false
