@@ -1,7 +1,7 @@
 import type { Reading } from './api'
 
 const WIDTH = 320
-const HEIGHT = 90
+const HEIGHT = 150
 const PAD = { top: 10, right: 10, bottom: 20, left: 34 }
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -82,8 +82,14 @@ export default function ReadingsChart({
         <text x={PAD.left} y={HEIGHT - 6} textAnchor="start">
           -24h
         </text>
+        <text x={PAD.left + plotW / 4} y={HEIGHT - 6} textAnchor="middle">
+          -18h
+        </text>
         <text x={PAD.left + plotW / 2} y={HEIGHT - 6} textAnchor="middle">
           -12h
+        </text>
+        <text x={PAD.left + (plotW * 3) / 4} y={HEIGHT - 6} textAnchor="middle">
+          -6h
         </text>
         <text x={PAD.left + plotW} y={HEIGHT - 6} textAnchor="end">
           now
