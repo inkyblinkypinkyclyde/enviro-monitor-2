@@ -84,7 +84,12 @@ export default function RoomCard({ room }: { room: Room }) {
       <div className="room-chart">
         {error && <p className="error">{error}</p>}
         {!data && !error && <p className="chart-empty">Loading…</p>}
-        {data && <ReadingsChart readings={data.readings} now={data.now} zoomed={expanded} />}
+        {data && (
+          <>
+            <ReadingsChart readings={data.readings} now={data.now} metric="temperature" zoomed={expanded} />
+            <ReadingsChart readings={data.readings} now={data.now} metric="humidity" zoomed={expanded} />
+          </>
+        )}
       </div>
 
       {expanded && data && (
