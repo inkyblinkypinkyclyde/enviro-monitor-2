@@ -17,7 +17,7 @@ const char *ssid = WIFI_SSID;
 const char *password = WIFI_PASSWORD;
 String newHostname = DEVICE_HOSTNAME;
 
-#define DHTPIN 0 // Digital pin connected to the DHT sensor
+#define DHTPIN 2 // Digital pin connected to the DHT sensor
 
 // Uncomment the type of sensor in use:
 // #define DHTTYPE    DHT11     // DHT 11
